@@ -5,3 +5,17 @@ ckpt/
 vis/
 log/
 pretrained/
+
+# VSCode files
+.vscode/
+
+# The images produced as a result of running demo_test.sh
+ADE_val_00000001.jpg
+material_result.png
+object_result.png
+original_image.jpg
+part_result.png
+scene.txt
+
+# Pre-trained checkpoints
+upp-resnet50-upernet/

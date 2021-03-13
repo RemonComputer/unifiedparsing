@@ -9,21 +9,27 @@ from torch.nn.parallel._functions import Gather
 
 __all__ = ['UserScatteredDataParallel', 'user_scattered_collate', 'async_copy_to']
 
-def async_copy_to(obj, dev, main_stream=None):
+def user_scattered_collate(batch):
+    return batch
+
+def async_copy_to(obj: torch.Tensor, dev: int) -> torch.Tensor:
+    r'''Asyncronous copy of the Tensor ro certain cuda dev.
+
+        Args:
+            obj (torch.Tensor): The input tensor.
+            dev (int): Certain device id.
+
+        Returns:
+            torch.Tensor: The copied Tensor.
+    '''
     if torch.is_tensor(obj):
-        obj = Variable(obj)
-    if isinstance(obj, Variable):
-        v = obj.cuda(dev, async=True)
-        if main_stream is not None:
-            v.data.record_stream(main_stream)
-        return v
+        return obj.cuda(dev, non_blocking= True)
     elif isinstance(obj, collections.Mapping):
-        return {k: async_copy_to(o, dev, main_stream) for k, o in obj.items()}
+        return {k: async_copy_to(o, dev) for k, o in obj.items()}
     elif isinstance(obj, collections.Sequence):
-        return [async_copy_to(o, dev, main_stream) for o in obj]
+        return [async_copy_to(o, dev) for o in obj]
     else:
         return obj
-
 
 def dict_gather(outputs, target_device, dim=0):
     """
@@ -61,11 +67,6 @@ class UserScatteredDataParallel(DictGatherDataParallel):
         kwargs = [{} for _ in range(len(inputs))]
 
         return inputs, kwargs
-
-
-def user_scattered_collate(batch):
-    return batch
-
 
 def _async_copy(inputs, device_ids):
     nr_devs = len(device_ids)

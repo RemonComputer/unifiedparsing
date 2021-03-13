@@ -1,8 +1,8 @@
 import torch
 import torch.multiprocessing as multiprocessing
-from torch._C import _set_worker_signal_handlers, _update_worker_pids, \
+#from torch._C import _set_worker_signal_handlers, _update_worker_pids, \
     _remove_worker_pids, _error_if_any_worker_fails
-from .sampler import SequentialSampler, RandomSampler, BatchSampler
+#from .sampler import SequentialSampler, RandomSampler, BatchSampler
 import signal
 import functools
 import collections
@@ -10,7 +10,7 @@ import re
 import sys
 import threading
 import traceback
-from torch._six import string_classes, int_classes
+#from torch._six import string_classes, int_classes
 import numpy as np
 
 if sys.version_info[0] == 2:

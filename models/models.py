@@ -3,7 +3,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torchvision
 from . import resnet, resnext
-from lib.nn import SynchronizedBatchNorm2d, PrRoIPool2D
+# from lib.nn import SynchronizedBatchNorm2d, PrRoIPool2D
+from torch.nn import SyncBatchNorm as SynchronizedBatchNorm2d
+from lib.nn import PrRoIPool2D
 
 from broden_dataset_utils.joint_dataset import broden_dataset
 

@@ -18,7 +18,8 @@ from models import ModelBuilder, SegmentationModule
 from utils import AverageMeter, colorEncode, accuracy, intersectionAndUnion, parse_devices, intersection_union_part
 from lib.nn import user_scattered_collate, async_copy_to
 from lib.utils import as_numpy, mark_volatile
-import lib.utils.data as torchdata
+#import lib.utils.data as torchdata
+import torch.utils.data as torchdata
 from broden_dataset_utils.joint_dataset import broden_dataset
 
 

@@ -4,10 +4,12 @@ import os
 import cv2
 import numpy as np
 import torch
-from scipy.misc import imread, imresize
+# from scipy.misc import imread, imresize
+from cv2 import imread
 from torchvision import transforms
 
-import lib.utils.data as torchdata
+#import lib.utils.data as torchdata
+import torch.utils.data as torchdata
 from broden_dataset_utils.joint_dataset import broden_dataset
 
 
@@ -162,7 +164,7 @@ class TrainDataset(torchdata.Dataset):
                     seg_material = cv2.flip(seg_material, 1)
 
             # img
-            img = imresize(img, (batch_resized_size[i, 0], batch_resized_size[i, 1]), interp='bilinear')
+            img = cv2.resize(img, (batch_resized_size[i, 1], batch_resized_size[i, 0]), interpolation=cv2.INTER_LINEAR) # Modified by Remon
             img = img.astype(np.float32)[:, :, ::-1]  # RGB to BGR!!!
             img = img.transpose((2, 0, 1))
             img = self.img_transform(torch.from_numpy(img.copy()))
@@ -196,9 +198,9 @@ class TrainDataset(torchdata.Dataset):
                         continue
                     part_rounded = np.zeros((segm_rounded_height, segm_rounded_width), dtype='uint8')
                     part_rounded[:parts_resized[j].shape[0], :parts_resized[j].shape[1]] = parts_resized[j]
-                    part = imresize(part_rounded,
-                                    (part_rounded.shape[0] // self.segm_downsampling_rate,
-                                     part_rounded.shape[1] // self.segm_downsampling_rate), interp='nearest')
+                    part = cv2.resize(part_rounded,
+                                    (part_rounded.shape[1] // self.segm_downsampling_rate,
+                                     part_rounded.shape[0] // self.segm_downsampling_rate), interp=cv2.INTER_NEAREST)
                     batch_parts[i][j][:part.shape[0], :part.shape[1]] = torch.from_numpy(part.copy())
                     # NOTE: part seg might disappear after resize.
                     if len(np.unique(part)) > 1:
@@ -206,15 +208,15 @@ class TrainDataset(torchdata.Dataset):
             # material
             if valid_mat:
                 batch_valid_mat[i] = valid_mat
-                segm = imresize(seg_material,
-                                (batch_resized_size[i, 0], batch_resized_size[i, 1]), interp='nearest')
+                segm = cv2.resize(seg_material,
+                                (batch_resized_size[i, 1], batch_resized_size[i, 0]), interpolation=cv2.INTER_NEAREST)
                 segm_rounded_height = round2nearest_multiple(segm.shape[0], self.padding_constant)
                 segm_rounded_width = round2nearest_multiple(segm.shape[1], self.padding_constant)
                 segm_rounded = np.zeros((segm_rounded_height, segm_rounded_width), dtype='uint8')
                 segm_rounded[:segm.shape[0], :segm.shape[1]] = segm
-                segm = imresize(segm_rounded,
-                                (segm_rounded.shape[0] // self.segm_downsampling_rate,
-                                 segm_rounded.shape[1] // self.segm_downsampling_rate), interp='nearest')
+                segm = cv2.resize(segm_rounded,
+                                (segm_rounded.shape[1] // self.segm_downsampling_rate,
+                                 segm_rounded.shape[0] // self.segm_downsampling_rate), interpolation=cv2.INTER_NEAREST)
                 batch_material[i][:segm.shape[0], :segm.shape[1]] = torch.from_numpy(segm.copy())
 
         # use compressed part segm
@@ -349,8 +351,10 @@ class TestDataset(torchdata.Dataset):
         this_record = self.list_sample[index]
         # load image and label
         image_path = this_record['fpath_img']
-        img = imread(image_path, mode='RGB')
-        img = img[:, :, ::-1]  # BGR to RGB!!!
+        #img = imread(image_path, mode='RGB')
+        img = imread(image_path, cv2.IMREAD_COLOR) # Image in BGR Format
+
+        # img = img[:, :, ::-1]  # BGR to RGB!!!
 
         ori_height, ori_width, _ = img.shape
 

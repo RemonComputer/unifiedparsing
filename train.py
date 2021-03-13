@@ -14,7 +14,8 @@ from dataset import TrainDataset
 from models import ModelBuilder, SegmentationModule
 from utils import AverageMeter
 from lib.nn import UserScatteredDataParallel, user_scattered_collate, patch_replication_callback
-import lib.utils.data as torchdata
+#import lib.utils.data as torchdata
+import torch.utils.data as torchdata
 
 from broden_dataset_utils.joint_dataset import broden_dataset
 

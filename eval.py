@@ -14,7 +14,8 @@ from models import ModelBuilder, SegmentationModule
 from utils import AverageMeter, colorEncode, accuracy, intersectionAndUnion
 from lib.nn import user_scattered_collate, async_copy_to
 from lib.utils import as_numpy, mark_volatile
-import lib.utils.data as torchdata
+#import lib.utils.data as torchdata
+import torch.utils.data as torchdata
 import cv2
 
 
@@ -47,6 +48,7 @@ def evaluate(segmentation_module, loader, args):
     for i, batch_data in enumerate(loader):
         # process data
         batch_data = batch_data[0]
+        #seg_label = as_numpy(batch_data['seg_label'][0])
         seg_label = as_numpy(batch_data['seg_label'][0])
 
         img_resized_list = batch_data['img_data']
@@ -67,6 +69,7 @@ def evaluate(segmentation_module, loader, args):
                 pred = pred + pred_tmp.cpu() / len(args.imgSize)
 
             _, preds = torch.max(pred.data.cpu(), dim=1)
+            #preds = as_numpy(preds.squeeze(0))
             preds = as_numpy(preds.squeeze(0))
 
         # calculate accuracy

@@ -6,7 +6,8 @@ from collections import namedtuple
 
 import numpy
 from scipy.io import loadmat
-from scipy.misc import imread
+# from scipy.misc import imread
+import cv2
 
 from .loadseg import AbstractSegmentation
 
@@ -120,7 +121,9 @@ def load_segmentation(m):
     """Returns the nth dataset segmentation as a numpy array,
     where each entry at a pixel is an object class value.
     """
-    data = imread(m['seg_filename'])
+    # data = imread(m['seg_filename'])
+    data = cv2.imread(m['seg_filename'], cv2.IMREAD_COLOR)  # Modified by Remon
+    data = cv2.cvtColor(data, cv2.COLOR_BGR2RGB)  # Modified by Remon
     return decodeClassMask(data)
 
 

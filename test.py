@@ -14,7 +14,8 @@ from models import ModelBuilder, SegmentationModule
 from utils import colorEncode
 from lib.nn import user_scattered_collate, async_copy_to
 from lib.utils import as_numpy, mark_volatile
-import lib.utils.data as torchdata
+#import lib.utils.data as torchdata
+import torch.utils.data as torchdata
 import cv2
 from broden_dataset_utils.joint_dataset import broden_dataset
 from utils import maskrcnn_colorencode, remove_small_mat
