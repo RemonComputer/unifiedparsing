@@ -7,7 +7,7 @@ import numpy
 from scipy.io import loadmat
 
 from .loadseg import AbstractSegmentation
-
+from .adeseg import meta_folder_path
 
 class PascalSegmentation(AbstractSegmentation):
     """
@@ -36,13 +36,13 @@ class PascalSegmentation(AbstractSegmentation):
         self.collapse_adjectives = collapse_adjectives
         # Load the parts coding metadata from part2ind.m
         codes = load_part2ind(
-            os.path.join('./meta_file/pascal/', 'part2ind.m'))
+            os.path.join(meta_folder_path, 'pascal/', 'part2ind.m'))
         # Normalized names
         self.codes = normalize_all_readable(codes, collapse_adjectives)
         self.part_object_names, self.part_names, self.part_key = normalize_part_key(self.codes)
         # Load the PASCAL context segmentation labels 
         self.object_names = load_context_labels(
-            os.path.join('./meta_file/pascal/', 'context_labels.txt'))
+            os.path.join(meta_folder_path, 'pascal/', 'context_labels.txt'))
         self.unknown_label = self.object_names.index('unknown')
         self.object_names[self.unknown_label] = '-'  # normalize unknown
         # Assume every mat file in the relevant directory is a segmentation.

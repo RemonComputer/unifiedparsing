@@ -12,6 +12,7 @@ from . import adeseg
 from . import dtdseg
 from . import osseg
 from . import pascalseg
+from .adeseg import meta_folder_path
 
 
 class BrodenDataset:
@@ -46,7 +47,8 @@ class BrodenDataset:
         self.data_sets = OrderedDict(ade20k=ade, pascal=pascal, os=opensurface)
 
         """ use multi source dataset """
-        self.broden_dataset_info = "./meta_file/joint_dataset"
+        self.broden_dataset_info = os.path.join(
+            meta_folder_path, "joint_dataset")
         self.record_list = {"train": [], "validation": []}
         self.record_list['train'].append(get_records(
             os.path.join(self.broden_dataset_info, "broden_ade20k_pascal_train.json")))

@@ -2,7 +2,9 @@
 import glob
 import os
 import re
+import os
 from collections import namedtuple
+from pathlib import Path
 
 import numpy
 from scipy.io import loadmat
@@ -10,6 +12,12 @@ from scipy.io import loadmat
 import cv2
 
 from .loadseg import AbstractSegmentation
+
+# Getting the current directory name from the current python file name
+current_dir_path = os.path.dirname(__file__)
+parent_dir = Path(current_dir_path).parent
+# Getting the meta file path
+meta_folder_path = os.path.join(parent_dir, "meta_file")
 
 
 class AdeSegmentation(AbstractSegmentation):
@@ -28,13 +36,18 @@ class AdeSegmentation(AbstractSegmentation):
                 version = ''
         self.root = directory
         self.version = version
-        mat = loadmat(os.path.join('./meta_file/ade20k', 'index_ade20k.mat'), squeeze_me=True)
+        mat = loadmat(os.path.join(meta_folder_path, 'ade20k', 'index_ade20k.mat'),
+                      squeeze_me=True)
         index = mat['index']
         Ade20kIndex = namedtuple('Ade20kIndex', index.dtype.names)
         self.index = Ade20kIndex(
             **{name: index[name][()] for name in index.dtype.names})
+        
+        categories_txt_file_path = os.path.join(
+            meta_folder_path, "ade20k/scene_categories.txt"
+        )
         # Here we use adechallenger scene label instead of ade20k.
-        with open("./meta_file/ade20k/scene_categories.txt", 'r') as f:
+        with open(categories_txt_file_path, 'r') as f:
             lines = f.readlines()
         self.index_scene_adecha = []
         for i, l in enumerate(lines):
