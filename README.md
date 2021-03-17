@@ -1,6 +1,9 @@
 # Description
 This is a fork of [Unified Perceptual Parsing for Scene Understanding](https://github.com/CSAILVision/unifiedparsing), The Original Repo was 3 years old and incompatible with the up to date libraries, I Fixed the incompatibility issues and ran it with pytorch 1.8 and Cuda Toolkit 11.1, Please be noted that I didn't test the train script I only tested `demo_test.sh` and It ran successfully and that was my Goal (`demo_test.sh` will download pretrained checkpoint and one image and will run the classification on it).
 
+## **update**
+I now using the repository as a submodule (as a library) on my master thesis work and I am gradually fixing and modifying things in it.
+
 # Unified Perceptual Parsing for Scene Understanding
 
 This is a pyTorch implementation of Unified Perceptual Parsing network on Broden+ dataset and ADE20K dataset. This work is published at ECCV'18 [Unified Perceptual Parsing for Scene Understanding](https://arxiv.org/abs/1807.10221), to which [Tete Xiao](http://tetexiao.com), [Yingcheng Liu](https://github.com/firstmover), and [Bolei Zhou](http://people.csail.mit.edu/bzhou/) contribute equally.
