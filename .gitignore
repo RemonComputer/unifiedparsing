@@ -19,3 +19,6 @@ scene.txt
 
 # Pre-trained checkpoints
 upp-resnet50-upernet/
+
+# Broden+ Dataset
+broden_dataset/
