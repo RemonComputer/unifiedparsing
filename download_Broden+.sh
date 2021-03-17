@@ -28,7 +28,7 @@ echo "Downloading Pascal Part Dataset"
 mkdir -p broden_dataset/pascal/part
 pushd broden_dataset/pascal/part
 wget --progress=bar \
-   http://www.stat.ucla.edu/~xianjie.chen/pascal_part_dataset/trainval.tar.gz \
+   http://roozbehm.info/pascal-parts/trainval.tar.gz \
    -O trainval.tar.gz
 tar xvfz trainval.tar.gz
 rm trainval.tar.gz
