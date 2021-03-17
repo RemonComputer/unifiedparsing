@@ -47,8 +47,16 @@ class SegmentationModuleBase(nn.Module):
 
 
 class SegmentationModule(SegmentationModuleBase):
-    def __init__(self, net_enc, net_dec, loss_scale=None):
+    def __init__(self,
+                 net_enc,
+                 net_dec,
+                 loss_scale=None,
+                 test_output_switch = {"object": True,
+                                       "part": True,
+                                       "scene": True,
+                                       "material": True}):
         super(SegmentationModule, self).__init__()
+        self.test_output_switch = test_output_switch
         self.encoder = net_enc
         self.decoder = net_dec
         self.crit_dict = nn.ModuleDict()
@@ -117,9 +125,10 @@ class SegmentationModule(SegmentationModuleBase):
 
             return {'metric': metric_dict, 'loss': loss_dict}
         else: # inference
-            output_switch = {"object": True, "part": True, "scene": True, "material": True}
+            # output_switch = {"object": True, "part": True, "scene": True, "material": True}
             pred = self.decoder(self.encoder(feed_dict['img'], return_feature_maps=True),
-                                output_switch=output_switch, seg_size=seg_size)
+                                output_switch = self.test_output_switch,
+                                seg_size = seg_size)
             return pred
 
 
@@ -380,18 +389,20 @@ class UPerNet(nn.Module):
                 if output_switch['part']:
                     output_dict['part'] = self.part_head(x)
 
-        if self.use_softmax:  # is True during inference
+        if self.use_softmax or seg_size is not None:  # is True during inference
             # inference scene
             x = output_dict['scene']
             x = x.squeeze(3).squeeze(2)
-            x = F.softmax(x, dim=1)
+            if self.use_softmax:
+                x = F.softmax(x, dim=1)
             output_dict['scene'] = x
 
             # inference object, material
             for k in ['object', 'material']:
                 x = output_dict[k]
                 x = F.interpolate(x, size=seg_size, mode='bilinear', align_corners=False)
-                x = F.softmax(x, dim=1)
+                if self.use_softmax:
+                    x = F.softmax(x, dim=1)
                 output_dict[k] = x
 
             # inference part
@@ -401,7 +412,8 @@ class UPerNet(nn.Module):
             for idx_part, object_label in enumerate(broden_dataset.object_with_part):
                 n_part = len(broden_dataset.object_part[object_label])
                 _x = F.interpolate(x[:, head: head + n_part], size=seg_size, mode='bilinear', align_corners=False)
-                _x = F.softmax(_x, dim=1)
+                if self.use_softmax:
+                    _x = F.softmax(_x, dim=1)
                 part_pred_list.append(_x)
                 head += n_part
             output_dict['part'] = part_pred_list
