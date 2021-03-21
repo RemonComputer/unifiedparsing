@@ -15,18 +15,35 @@ class SegmentationModuleBase(nn.Module):
         super(SegmentationModuleBase, self).__init__()
 
     @staticmethod
-    def pixel_acc(pred, label, ignore_index=-1):
+    def pixel_acc(pred: torch.Tensor, label: torch.Tensor, 
+                  ignore_index: int=-1) -> float:
+        r'''Getting the total pixel accuracy.
+
+            Args:
+                pred (torch.Tensor): The propabilities mask from the model.
+                label (torch.Tensor): The Ground Truth Label 
+                ignore_index (int): The category index to ignore while
+                    calculating the overall accuracy.
+        '''
+        # Getting Prediction labels
         _, preds = torch.max(pred, dim=1)
+        # Getting the valid mask
         valid = (label != ignore_index).long()
+        # Getting the count of accurcate pixels.
         acc_sum = torch.sum(valid * (preds == label).long())
+        # Getting the total valid pixels sum.
         pixel_sum = torch.sum(valid)
+        # Calculating the total accuracy.
         acc = acc_sum.float() / (pixel_sum.float() + 1e-10)
         return acc
 
     @staticmethod
     def part_pixel_acc(pred_part, gt_seg_part, gt_seg_object, object_label, valid):
+        # Object mask
         mask_object = (gt_seg_object == object_label)
+        # Getting part prediction
         _, pred = torch.max(pred_part, dim=1)
+        # Getting Accurate valid pixels mask
         acc_sum = mask_object * (pred == gt_seg_part)
         acc_sum = torch.sum(acc_sum.view(acc_sum.size(0), -1), dim=1)
         acc_sum = torch.sum(acc_sum * valid)
