@@ -146,7 +146,9 @@ def load_parts(m):
     """
     result = []
     for fn in m['part_filenames']:
-        data = imread(fn)
+        # data = imread(fn)
+        data = cv2.imread(fn, cv2.IMREAD_COLOR) # Modified by Remon
+        data = cv2.cvtColor(data, cv2.COLOR_BGR2RGB) # Modified by Remon
         result.append(decodeClassMask(data))
     if not result:
         return []
