@@ -274,7 +274,7 @@ class ValDataset(torchdata.Dataset):
 
         # image
         img = data['img']
-        img = img[:, :, ::-1]  # BGR to RGB!!!
+        img = img[:, :, ::-1]  # BGR to RGB!!! -- Remon: Is it correct to do that
         ori_height, ori_width, _ = img.shape
         img_resized_list = []
         for this_short_size in self.imgSize:
