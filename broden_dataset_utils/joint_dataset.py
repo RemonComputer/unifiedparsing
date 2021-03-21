@@ -12,7 +12,7 @@ from . import adeseg
 from . import dtdseg
 from . import osseg
 from . import pascalseg
-from .adeseg import meta_folder_path
+from .adeseg import meta_folder_path, parent_dir
 
 
 class BrodenDataset:
@@ -21,7 +21,7 @@ class BrodenDataset:
 
         """ data sets """
 
-        broden_dataset_root = "./broden_dataset"
+        broden_dataset_root = os.path.join(parent_dir, "broden_dataset")
 
         # Dataset 1:    ADE20K. object, part, scene. 
         #               use resized data, use 1 level of the part seg. 
@@ -168,7 +168,7 @@ class BrodenDataset:
                 "seg_obj": seg_obj,
                 "valid_obj": valid_obj,
                 "batch_seg_part": batch_seg_part,
-                "valid_part": valid_part,
+                "valid_part": valid_part,  # Represents a bit vector that shows which object with part category has valid parts
                 "scene_label": scene_label,
                 "seg_material": seg_material,
                 "valid_mat": valid_mat
