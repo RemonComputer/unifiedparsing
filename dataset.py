@@ -246,10 +246,13 @@ class TrainDataset(torchdata.Dataset):
 
 class ValDataset(torchdata.Dataset):
     def __init__(self, records, opt, max_sample=-1, start_idx=-1, end_idx=-1):
-        self.imgSize = opt.imgSize
-        self.imgMaxSize = opt.imgMaxSize
+        self.imgSize = opt['imgSize'] if type(opt) == dict else opt.imgSize
+        self.imgMaxSize = opt['imgMaxSize'] if type(opt) == dict else \
+            opt.imgMaxSize
+        self.segm_downsampling_rate = opt['segm_downsampling_rate'] \
+            if type(opt) == dict else opt.segm_downsampling_rate
         # max down sampling rate of network to avoid rounding during conv or pooling
-        self.padding_constant = opt.padding_constant
+        self.padding_constant = opt['padding_constant']  if type(opt) == dict else opt.padding_constant
 
         # mean and std
         self.img_transform = transforms.Compose([
@@ -274,46 +277,88 @@ class ValDataset(torchdata.Dataset):
 
         # image
         img = data['img']
-        img = img[:, :, ::-1]  # BGR to RGB!!! -- Remon: Is it correct to do that
+        img = img[:, :, ::-1]  # BGR to RGB!!! -- Remon: Is it correct to do that -- this is actually RGB to BGR
         ori_height, ori_width, _ = img.shape
         img_resized_list = []
-        for this_short_size in self.imgSize:
-            # calculate target height and width
-            scale = min(this_short_size / float(min(ori_height, ori_width)),
-                        self.imgMaxSize / float(max(ori_height, ori_width)))
-            target_height, target_width = int(ori_height * scale), int(ori_width * scale)
+        # for this_short_size in self.imgSize:
+        #     # calculate target height and width
+        #     scale = min(this_short_size / float(min(ori_height, ori_width)),
+        #                 self.imgMaxSize / float(max(ori_height, ori_width)))
+        #     target_height, target_width = int(ori_height * scale), int(ori_width * scale)
 
-            # to avoid rounding in network
-            target_height = round2nearest_multiple(target_height, self.padding_constant)
-            target_width = round2nearest_multiple(target_width, self.padding_constant)
+        #     # to avoid rounding in network
+        #     target_height = round2nearest_multiple(target_height, self.padding_constant)
+        #     target_width = round2nearest_multiple(target_width, self.padding_constant)
 
-            # resize
-            img_resized = cv2.resize(img.copy(), (target_width, target_height))
+        #     # resize
+        #     img_resized = cv2.resize(img.copy(), (target_width, target_height))
 
-            # image to float
-            img_resized = img_resized.astype(np.float32)
-            img_resized = img_resized.transpose((2, 0, 1))
-            img_resized = self.img_transform(torch.from_numpy(img_resized))
+        #     # image to float
+        #     img_resized = img_resized.astype(np.float32)
+        #     img_resized = img_resized.transpose((2, 0, 1))
+        #     img_resized = self.img_transform(torch.from_numpy(img_resized))
 
-            img_resized_list.append(img_resized)
-        output['img_resized_list'] = [x.contiguous() for x in img_resized_list]
-        output['original_img'] = img
+        #     img_resized_list.append(img_resized)
+        # output['img_resized_list'] = [x.contiguous() for x in img_resized_list]
+        # output['original_img'] = img
+        # output['img'] = torch.from_numpy(
+        #     img.copy().transpose((2, 0, 1)).astype(np.float32)) # Added by Remon for testing only
+
+        # This part is added by Remon
+        # calculate target height and width
+        scale = min(self.imgSize / float(min(ori_height, ori_width)),
+                    self.imgMaxSize / float(max(ori_height, ori_width)))
+        target_height, target_width = int(ori_height * scale), int(ori_width * scale)
+
+        # to avoid rounding in network
+        target_height = round2nearest_multiple(target_height, self.padding_constant)
+        target_width = round2nearest_multiple(target_width, self.padding_constant)
+
+        # resize
+        img_resized = cv2.resize(img.copy(), (target_width, target_height))
+
+        # image to float
+        img_resized = img_resized.astype(np.float32)
+        img_resized = img_resized.transpose((2, 0, 1))
+        img_resized = self.img_transform(torch.from_numpy(img_resized))
+        output['img'] = img_resized
+
+        # Dimensions of segmentation
+        segm_height = target_height // self.segm_downsampling_rate
+        segm_width = target_width // self.segm_downsampling_rate
 
         # object
+        seg_object_resized = \
+            cv2.resize(data["seg_obj"], (segm_width, segm_height), 
+                       interpolation=cv2.INTER_NEAREST)                
+        # output['seg_object'] = torch.from_numpy(
+        #     data["seg_obj"].astype(np.int32)).long().contiguous()
         output['seg_object'] = torch.from_numpy(
-            data["seg_obj"].astype(np.int32)).long().contiguous()
+            seg_object_resized.astype(np.int32)).long().contiguous()
         output['valid_object'] = torch.tensor(int(data['valid_obj'])).long()
 
         # part
+        # output['seg_part'] = torch.from_numpy(
+        #     np.sum(data["batch_seg_part"], axis=0).astype(np.uint8)).long().contiguous()
+        seg_part = np.sum(data["batch_seg_part"], axis=0).astype(np.uint8)
+        seg_part_resized = \
+            cv2.resize(seg_part, (segm_width, segm_height), 
+                       interpolation=cv2.INTER_NEAREST)
         output['seg_part'] = torch.from_numpy(
-            np.sum(data["batch_seg_part"], axis=0).astype(np.uint8)).long().contiguous()
-        output['valid_part'] = torch.from_numpy(data['valid_part'].astype(np.uint8)).long()
+            seg_part_resized.astype(np.int32)).long().contiguous()
+        output['valid_part'] = \
+            torch.from_numpy(data['valid_part'].astype(np.uint8)).long()
 
         # scene
         output['scene_label'] = torch.tensor(int(data['scene_label']))
 
         # material
-        output['seg_material'] = torch.from_numpy(data['seg_material']).contiguous()
+        # output['seg_material'] = torch.from_numpy(data['seg_material']).contiguous()
+        seg_material_resized = \
+            cv2.resize(data['seg_material'], (segm_width, segm_height), 
+                       interpolation=cv2.INTER_NEAREST)
+        output['seg_material'] = torch.from_numpy(
+            seg_material_resized.astype(np.int32)).long().contiguous()
         output['valid_material'] = torch.tensor(int(data['valid_mat'])).long()
 
         return output
@@ -354,7 +399,7 @@ class TestDataset(torchdata.Dataset):
         #img = imread(image_path, mode='RGB')
         img = imread(image_path, cv2.IMREAD_COLOR) # Image in BGR Format
 
-        # img = img[:, :, ::-1]  # BGR to RGB!!!
+        # img = img[:, :, ::-1]  # BGR to RGB!!! --- Remon Should I make it BGR or RGB -- The Correct thing is to leave it in BGR Format
 
         ori_height, ori_width, _ = img.shape
 
