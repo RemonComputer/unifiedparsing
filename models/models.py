@@ -1,3 +1,5 @@
+from typing import Optional
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -16,7 +18,9 @@ class SegmentationModuleBase(nn.Module):
 
     @staticmethod
     def pixel_acc(pred: torch.Tensor, label: torch.Tensor, 
-                  ignore_index: int=-1) -> float:
+                  ignore_index: int=-1,
+                  samples_valid_mask: torch.tensor = None,
+                  missing_score: float = 1.0) -> float:
         r'''Getting the total pixel accuracy.
 
             Args:
@@ -24,18 +28,67 @@ class SegmentationModuleBase(nn.Module):
                 label (torch.Tensor): The Ground Truth Label 
                 ignore_index (int): The category index to ignore while
                     calculating the overall accuracy.
+                samples_valid_mask (torch.tensor): The batch valid mask per
+                    sample.
+                missing_score (float): The score to replace if the total count
+                of valid pixels are zero.
         '''
         # Getting Prediction labels
         _, preds = torch.max(pred, dim=1)
         # Getting the valid mask
         valid = (label != ignore_index).long()
+        # Adding the batch validation mask to the calculations
+        if samples_valid_mask is not None:
+            pred_dim = len(preds.shape)
+            samples_valid_mask_view_shape = [samples_valid_mask.shape[0]] + \
+                [1 for i in range(pred_dim - 1)]
+            samples_valid_mask_reshaped = \
+                samples_valid_mask.view(samples_valid_mask_view_shape)
+            # Multiplying by valid to apply the 
+            valid *= samples_valid_mask_reshaped
         # Getting the count of accurcate pixels.
         acc_sum = torch.sum(valid * (preds == label).long())
         # Getting the total valid pixels sum.
         pixel_sum = torch.sum(valid)
+        if pixel_sum == 0:
+            return missing_score
         # Calculating the total accuracy.
         acc = acc_sum.float() / (pixel_sum.float() + 1e-10)
         return acc
+
+    @staticmethod
+    def get_correct_and_valid_pixels(pred: torch.Tensor, label: torch.Tensor, 
+                                     ignore_index: int=-1,
+                                     samples_valid_mask: torch.tensor = None):
+        r'''Gets the correct and total valid pixels to be used in accomulated
+            pixels calculations.
+
+            Args:
+                pred (torch.Tensor): The propabilities mask from the model.
+                label (torch.Tensor): The Ground Truth Label 
+                ignore_index (int): The category index to ignore while
+                    calculating the overall accuracy.
+                samples_valid_mask (torch.tensor): The batch valid mask per
+                    sample.
+        '''
+        # Getting Prediction labels
+        _, preds = torch.max(pred, dim=1)
+        # Getting the valid mask
+        valid = (label != ignore_index).long()
+        # Adding the batch validation mask to the calculations
+        if samples_valid_mask is not None:
+            pred_dim = len(preds.shape)
+            samples_valid_mask_view_shape = [samples_valid_mask.shape[0]] + \
+                [1 for i in range(pred_dim - 1)]
+            samples_valid_mask_reshaped = \
+                samples_valid_mask.view(samples_valid_mask_view_shape)
+            # Multiplying by valid to apply the 
+            valid *= samples_valid_mask_reshaped
+        # Getting the count of accurcate pixels.
+        acc_sum = torch.sum(valid * (preds == label).long()).long()
+        # Getting the total valid pixels sum.
+        pixel_sum = torch.sum(valid).long()
+        return acc_sum, pixel_sum
 
     @staticmethod
     def part_pixel_acc(pred_part, gt_seg_part, gt_seg_object, object_label, valid):
@@ -54,7 +107,10 @@ class SegmentationModuleBase(nn.Module):
     @staticmethod
     def part_loss(pred_part, gt_seg_part, gt_seg_object, object_label, valid):
         mask_object = (gt_seg_object == object_label)
-        loss = F.nll_loss(pred_part, gt_seg_part * mask_object.long(), reduction='none')
+        # loss = F.nll_loss(pred_part, gt_seg_part * mask_object.long(), reduction='none')
+        # Modified by Remon
+        loss = F.cross_entropy(pred_part, gt_seg_part * mask_object.long(),
+            reduction='none')  
         loss = loss * mask_object.float()
         loss = torch.sum(loss.view(loss.size(0), -1), dim=1)
         nr_pixel = torch.sum(mask_object.view(mask_object.shape[0], -1), dim=1)
@@ -62,6 +118,27 @@ class SegmentationModuleBase(nn.Module):
         loss = (loss * valid.float()).sum() / torch.clamp(sum_pixel, 1).float()
         return loss
 
+class CrossEntropyLossWithValidationMask(nn.CrossEntropyLoss):
+    r'''This class has been added by Remon to account for the validation mask
+        when calculating the cross entropy loss.
+
+        Args:
+            ignore_index: The index to ignore.
+    '''
+    def __init__(self, ignore_index):
+        super().__init__(ignore_index=ignore_index, reduction='none')
+
+    def forward(self, input: torch.Tensor, target: torch.Tensor, 
+                validation_mask: torch.Tensor):
+        target_dim = len(target.shape)
+        validation_mask_view_shape = [validation_mask.shape[0]] + \
+            [1 for i in range(target_dim - 1)]
+        validation_mask_reshaped = \
+            validation_mask.view(validation_mask_view_shape)
+        loss_unreduced = super().forward(input, target)
+        loss_masked = validation_mask_reshaped * loss_unreduced
+        mean_loss = torch.mean(loss_masked)
+        return mean_loss
 
 class SegmentationModule(SegmentationModuleBase):
     def __init__(self,
@@ -83,19 +160,32 @@ class SegmentationModule(SegmentationModuleBase):
             self.loss_scale = loss_scale
 
         # criterion
-        self.crit_dict["object"] = nn.NLLLoss(ignore_index=0)  # ignore background 0
-        self.crit_dict["material"] = nn.NLLLoss(ignore_index=0)  # ignore background 0
-        self.crit_dict["scene"] = nn.NLLLoss(ignore_index=-1)  # ignore unlabelled -1
+        # self.crit_dict["object"] = nn.NLLLoss(ignore_index=0)  # ignore background 0
+        # self.crit_dict["material"] = nn.NLLLoss(ignore_index=0)  # ignore background 0
+        # self.crit_dict["scene"] = nn.NLLLoss(ignore_index=-1)  # ignore unlabelled -1
+        
+        # Code modified by Remon
+        # self.crit_dict["object"] = nn.CrossEntropyLoss(ignore_index=0)  # ignore background 0
+        # self.crit_dict["material"] = nn.CrossEntropyLoss(ignore_index=0)  # ignore background 0
+        self.crit_dict["scene"] = nn.CrossEntropyLoss(ignore_index=-1)
+        self.crit_dict["object"] = CrossEntropyLossWithValidationMask(ignore_index=0)  # ignore background 0
+        self.crit_dict["material"] = CrossEntropyLossWithValidationMask(ignore_index=0)  # ignore background 0
 
     def forward(self, feed_dict, *, seg_size=None):
         if seg_size is None: # training
 
-            if feed_dict['source_idx'] == 0:
-                output_switch = {"object": True, "part": True, "scene": True, "material": False}
-            elif feed_dict['source_idx'] == 1:
-                output_switch = {"object": False, "part": False, "scene": False, "material": True}
-            else:
-                raise ValueError
+            # if feed_dict['source_idx'] == 0:
+            #     output_switch = {"object": True, "part": True, "scene": True, "material": False}
+            # elif feed_dict['source_idx'] == 1:
+            #     output_switch = {"object": False, "part": False, "scene": False, "material": True}
+            # else:
+            #     raise ValueError
+
+            # Code added by Remon
+            output_switch = {"object": True,
+                             "part": True,
+                             "scene": True,
+                             "material": True}
 
             pred = self.decoder(
                 self.encoder(feed_dict['img'], return_feature_maps=True),
@@ -105,7 +195,7 @@ class SegmentationModule(SegmentationModuleBase):
             # loss
             loss_dict = {}
             if pred['object'] is not None:  # object
-                loss_dict['object'] = self.crit_dict['object'](pred['object'], feed_dict['seg_object'])
+                loss_dict['object'] = self.crit_dict['object'](pred['object'], feed_dict['seg_object'], feed_dict['valid_object'])
             if pred['part'] is not None:  # part
                 part_loss = 0
                 for idx_part, object_label in enumerate(broden_dataset.object_with_part):
@@ -116,17 +206,31 @@ class SegmentationModule(SegmentationModuleBase):
             if pred['scene'] is not None:  # scene
                 loss_dict['scene'] = self.crit_dict['scene'](pred['scene'], feed_dict['scene_label'])
             if pred['material'] is not None:  # material
-                loss_dict['material'] = self.crit_dict['material'](pred['material'], feed_dict['seg_material'])
+                loss_dict['material'] = self.crit_dict['material'](pred['material'], feed_dict['seg_material'], feed_dict['valid_material'])
             loss_dict['total'] = sum([loss_dict[k] * self.loss_scale[k] for k in loss_dict.keys()])
 
             # metric 
             metric_dict= {}
             if pred['object'] is not None:
-                metric_dict['object'] = self.pixel_acc(
-                    pred['object'], feed_dict['seg_object'], ignore_index=0)
+                # metric_dict['object'] = self.pixel_acc(
+                #     pred['object'], feed_dict['seg_object'], ignore_index=0,
+                #     samples_valid_mask=feed_dict['valid_object'],
+                #     missing_score = None)
+                correct, valid = self.get_correct_and_valid_pixels(
+                    pred['object'], feed_dict['seg_object'], ignore_index=0,
+                    samples_valid_mask=feed_dict['valid_object']
+                )
+                metric_dict['object'] = {'correct': correct, 'valid': valid}
             if pred['material'] is not None:
-                metric_dict['material'] = self.pixel_acc(
-                    pred['material'], feed_dict['seg_material'], ignore_index=0)
+                # metric_dict['material'] = self.pixel_acc(
+                #     pred['material'], feed_dict['seg_material'], ignore_index=0,
+                #     samples_valid_mask=feed_dict['valid_material'],
+                #     missing_score = None)
+                correct, valid = self.get_correct_and_valid_pixels(
+                    pred['material'], feed_dict['seg_material'], ignore_index=0,
+                    samples_valid_mask=feed_dict['valid_material']
+                )
+                metric_dict['material'] = {'correct': correct, 'valid': valid}
             if pred['part'] is not None:
                 acc_sum, pixel_sum = 0, 0
                 for idx_part, object_label in enumerate(broden_dataset.object_with_part):
@@ -135,10 +239,22 @@ class SegmentationModule(SegmentationModuleBase):
                         object_label, feed_dict['valid_part'][:, idx_part])
                     acc_sum += acc
                     pixel_sum += pixel
-                metric_dict['part'] = acc_sum.float() / (pixel_sum.float() + 1e-10)
+                # if pixel_sum > 0:
+                #     part_acc = acc_sum.float() / pixel_sum.float()
+                # else:
+                #     part_acc = None
+                #metric_dict['part'] = acc_sum.float() / (pixel_sum.float() + 1e-10)
+                # metric_dict['part'] = part_acc
+                metric_dict['part'] = {'correct': acc_sum.long(),
+                                        'valid': pixel_sum.long()}  # Should we account for background when calculaing valid pixels 
             if pred['scene'] is not None:
                 metric_dict['scene'] = self.pixel_acc(
-                    pred['scene'], feed_dict['scene_label'], ignore_index=-1)
+                    pred['scene'], feed_dict['scene_label'], ignore_index=-1,
+                    missing_score = None)
+                correct, valid = self.get_correct_and_valid_pixels(
+                    pred['scene'], feed_dict['scene_label'], ignore_index=-1
+                )
+                metric_dict['scene'] = {'correct': correct, 'valid': valid}
 
             return {'metric': metric_dict, 'loss': loss_dict}
         else: # inference
