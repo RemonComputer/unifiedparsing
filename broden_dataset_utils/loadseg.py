@@ -45,7 +45,7 @@ class AbstractSegmentation:
 
     def image_data(self, i):
         data = cv2.imread(self.filename(i), cv2.IMREAD_COLOR)  # Modified by Remon
-        # data = cv2.cvtColor(data, cv2.COLOR_BGR2RGB)  # Modified by Remon - Removed the conversion since the test dataset was working correctly on BGR not RGB format
+        data = cv2.cvtColor(data, cv2.COLOR_BGR2RGB)  # Modified by Remon
         #return imread(self.filename(i), mode='RGB')
         return data
 
