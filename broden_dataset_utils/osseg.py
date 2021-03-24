@@ -4,6 +4,7 @@ from csv import DictReader
 
 import numpy
 #from scipy.misc import imread
+import cv2
 
 from .loadseg import AbstractSegmentation
 from .adeseg import meta_folder_path
@@ -64,7 +65,7 @@ class OpenSurfaceSegmentation(AbstractSegmentation):
         if wants('material', categories):
             #labels = imread(m['seg_filename'])
             labels = cv2.imread(m['seg_filename'], cv2.IMREAD_COLOR)  # Modified by Remon
-            labels = cv2.cvtColor(data, cv2.COLOR_BGR2RGB)  # Modified by Remon
+            labels = cv2.cvtColor(labels, cv2.COLOR_BGR2RGB)  # Modified by Remon
             result['material'] = labels[:, :, 0]
         arrs = [a for a in list(result.values()) if len(numpy.shape(a)) >= 2]
         shape = arrs[0].shape[-2:] if arrs else (1, 1)
