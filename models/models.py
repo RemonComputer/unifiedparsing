@@ -262,7 +262,7 @@ class SegmentationModule(SegmentationModuleBase):
             pred = self.decoder(self.encoder(feed_dict['img'], return_feature_maps=True),
                                 output_switch = self.test_output_switch,
                                 seg_size = seg_size)
-            return pred
+            return {'pred': pred}
 
 
 def conv3x3(in_planes, out_planes, stride=1, has_bias=False):
