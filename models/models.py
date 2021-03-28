@@ -256,7 +256,7 @@ class SegmentationModule(SegmentationModuleBase):
                 )
                 metric_dict['scene'] = {'correct': correct, 'valid': valid}
 
-            return {'metric': metric_dict, 'loss': loss_dict}
+            return {'metric': metric_dict, 'loss': loss_dict, 'pred': pred}
         else: # inference
             # output_switch = {"object": True, "part": True, "scene": True, "material": True}
             pred = self.decoder(self.encoder(feed_dict['img'], return_feature_maps=True),
