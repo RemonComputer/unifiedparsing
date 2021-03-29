@@ -7,7 +7,7 @@ import torchvision
 from . import resnet, resnext
 # from lib.nn import SynchronizedBatchNorm2d, PrRoIPool2D
 from torch.nn import SyncBatchNorm as SynchronizedBatchNorm2d
-from lib.nn import PrRoIPool2D
+# from lib.nn import PrRoIPool2D
 
 from broden_dataset_utils.joint_dataset import broden_dataset
 
@@ -408,7 +408,8 @@ class UPerNet(nn.Module):
 
         for scale in pool_scales:
             # we use the feature map size instead of input image size, so down_scale = 1.0
-            self.ppm_pooling.append(PrRoIPool2D(scale, scale, 1.))
+            #self.ppm_pooling.append(PrRoIPool2D(scale, scale, 1.))
+            self.ppm_pooling.append(nn.AdaptiveAvgPool2d(scale))
             self.ppm_conv.append(nn.Sequential(
                 nn.Conv2d(fc_dim, 512, kernel_size=1, bias=False),
                 SynchronizedBatchNorm2d(512),
@@ -480,7 +481,7 @@ class UPerNet(nn.Module):
         ppm_out = [conv5]
         for pool_scale, pool_conv in zip(self.ppm_pooling, self.ppm_conv):
             ppm_out.append(pool_conv(F.interpolate(
-                pool_scale(conv5, roi.detach()),
+                pool_scale(conv5),
                 (input_size[2], input_size[3]),
                 mode='bilinear', align_corners=False)))
         ppm_out = torch.cat(ppm_out, 1)
