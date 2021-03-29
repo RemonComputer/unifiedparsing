@@ -273,7 +273,9 @@ class ValDataset(torchdata.Dataset):
 
     def __getitem__(self, index):
         data = broden_dataset.resolve_record(self.list_sample[index])
-        output = {}
+        output = {
+            "img_file_path": data["img_file_path"]
+        }
 
         # image
         img = data['img']

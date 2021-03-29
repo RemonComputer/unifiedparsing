@@ -134,7 +134,8 @@ class BrodenDataset:
                     "valid_part": valid_part,
                     "scene_label": scene_label,
                     "seg_material": seg_material,
-                    "valid_mat": valid_mat
+                    "valid_mat": valid_mat,
+                    "img_file_path": md['filename'],
                 }
 
                 return data
@@ -171,7 +172,8 @@ class BrodenDataset:
                 "valid_part": valid_part,  # Represents a bit vector that shows which object with part category has valid parts
                 "scene_label": scene_label,
                 "seg_material": seg_material,
-                "valid_mat": valid_mat
+                "valid_mat": valid_mat,
+                "img_file_path": md['filename'],
             }
 
             return data
@@ -190,7 +192,8 @@ class BrodenDataset:
                 "scene_label": scene_label,
                 "texture_label": texture_label,
                 "seg_material": seg_material,
-                "valid_mat": valid_mat
+                "valid_mat": valid_mat,
+                "img_file_path": md['filename'],
             }
 
             return data
@@ -209,7 +212,8 @@ class BrodenDataset:
                 "valid_part": valid_part,
                 "scene_label": scene_label,
                 "seg_material": seg_material,
-                "valid_mat": valid_mat
+                "valid_mat": valid_mat,
+                "img_file_path": md['filename'],
             }
 
             return data
