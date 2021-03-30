@@ -148,11 +148,13 @@ class SegmentationModule(SegmentationModuleBase):
                  test_output_switch = {"object": True,
                                        "part": True,
                                        "scene": True,
-                                       "material": True}):
+                                       "material": True},
+                 disable_metric_and_loss_calculations = False):
         super(SegmentationModule, self).__init__()
         self.test_output_switch = test_output_switch
         self.encoder = net_enc
         self.decoder = net_dec
+        self.disable_metric_and_loss_calculations = disable_metric_and_loss_calculations
         self.crit_dict = nn.ModuleDict()
         if loss_scale is None:
             self.loss_scale = {"object": 1, "part": 0.5, "scene": 0.25, "material": 1}
@@ -192,71 +194,77 @@ class SegmentationModule(SegmentationModuleBase):
                 output_switch=output_switch
             )
 
-            # loss
-            loss_dict = {}
-            if pred['object'] is not None:  # object
-                loss_dict['object'] = self.crit_dict['object'](pred['object'], feed_dict['seg_object'], feed_dict['valid_object'])
-            if pred['part'] is not None:  # part
-                part_loss = 0
-                for idx_part, object_label in enumerate(broden_dataset.object_with_part):
-                    part_loss += self.part_loss(
-                        pred['part'][idx_part], feed_dict['seg_part'],
-                        feed_dict['seg_object'], object_label, feed_dict['valid_part'][:, idx_part])
-                loss_dict['part'] = part_loss
-            if pred['scene'] is not None:  # scene
-                loss_dict['scene'] = self.crit_dict['scene'](pred['scene'], feed_dict['scene_label'])
-            if pred['material'] is not None:  # material
-                loss_dict['material'] = self.crit_dict['material'](pred['material'], feed_dict['seg_material'], feed_dict['valid_material'])
-            loss_dict['total'] = sum([loss_dict[k] * self.loss_scale[k] for k in loss_dict.keys()])
+            output_dict = {'pred': pred}
+            if not self.disable_metric_and_loss_calculations:
+                # loss
+                loss_dict = {}
+                if pred['object'] is not None:  # object
+                    loss_dict['object'] = self.crit_dict['object'](pred['object'], feed_dict['seg_object'], feed_dict['valid_object'])
+                if pred['part'] is not None:  # part
+                    part_loss = 0
+                    for idx_part, object_label in enumerate(broden_dataset.object_with_part):
+                        part_loss += self.part_loss(
+                            pred['part'][idx_part], feed_dict['seg_part'],
+                            feed_dict['seg_object'], object_label, feed_dict['valid_part'][:, idx_part])
+                    loss_dict['part'] = part_loss
+                if pred['scene'] is not None:  # scene
+                    loss_dict['scene'] = self.crit_dict['scene'](pred['scene'], feed_dict['scene_label'])
+                if pred['material'] is not None:  # material
+                    loss_dict['material'] = self.crit_dict['material'](pred['material'], feed_dict['seg_material'], feed_dict['valid_material'])
+                loss_dict['total'] = sum([loss_dict[k] * self.loss_scale[k] for k in loss_dict.keys()])
 
-            # metric 
-            metric_dict= {}
-            if pred['object'] is not None:
-                # metric_dict['object'] = self.pixel_acc(
-                #     pred['object'], feed_dict['seg_object'], ignore_index=0,
-                #     samples_valid_mask=feed_dict['valid_object'],
-                #     missing_score = None)
-                correct, valid = self.get_correct_and_valid_pixels(
-                    pred['object'], feed_dict['seg_object'], ignore_index=0,
-                    samples_valid_mask=feed_dict['valid_object']
-                )
-                metric_dict['object'] = {'correct': correct, 'valid': valid}
-            if pred['material'] is not None:
-                # metric_dict['material'] = self.pixel_acc(
-                #     pred['material'], feed_dict['seg_material'], ignore_index=0,
-                #     samples_valid_mask=feed_dict['valid_material'],
-                #     missing_score = None)
-                correct, valid = self.get_correct_and_valid_pixels(
-                    pred['material'], feed_dict['seg_material'], ignore_index=0,
-                    samples_valid_mask=feed_dict['valid_material']
-                )
-                metric_dict['material'] = {'correct': correct, 'valid': valid}
-            if pred['part'] is not None:
-                acc_sum, pixel_sum = 0, 0
-                for idx_part, object_label in enumerate(broden_dataset.object_with_part):
-                    acc, pixel = self.part_pixel_acc(
-                        pred['part'][idx_part], feed_dict['seg_part'], feed_dict['seg_object'],
-                        object_label, feed_dict['valid_part'][:, idx_part])
-                    acc_sum += acc
-                    pixel_sum += pixel
-                # if pixel_sum > 0:
-                #     part_acc = acc_sum.float() / pixel_sum.float()
-                # else:
-                #     part_acc = None
-                #metric_dict['part'] = acc_sum.float() / (pixel_sum.float() + 1e-10)
-                # metric_dict['part'] = part_acc
-                metric_dict['part'] = {'correct': acc_sum.long(),
-                                        'valid': pixel_sum.long()}  # Should we account for background when calculaing valid pixels 
-            if pred['scene'] is not None:
-                metric_dict['scene'] = self.pixel_acc(
-                    pred['scene'], feed_dict['scene_label'], ignore_index=-1,
-                    missing_score = None)
-                correct, valid = self.get_correct_and_valid_pixels(
-                    pred['scene'], feed_dict['scene_label'], ignore_index=-1
-                )
-                metric_dict['scene'] = {'correct': correct, 'valid': valid}
+                output_dict['loss'] = loss_dict
 
-            return {'metric': metric_dict, 'loss': loss_dict, 'pred': pred}
+                # metric 
+                metric_dict= {}
+                if pred['object'] is not None:
+                    # metric_dict['object'] = self.pixel_acc(
+                    #     pred['object'], feed_dict['seg_object'], ignore_index=0,
+                    #     samples_valid_mask=feed_dict['valid_object'],
+                    #     missing_score = None)
+                    correct, valid = self.get_correct_and_valid_pixels(
+                        pred['object'], feed_dict['seg_object'], ignore_index=0,
+                        samples_valid_mask=feed_dict['valid_object']
+                    )
+                    metric_dict['object'] = {'correct': correct, 'valid': valid}
+                if pred['material'] is not None:
+                    # metric_dict['material'] = self.pixel_acc(
+                    #     pred['material'], feed_dict['seg_material'], ignore_index=0,
+                    #     samples_valid_mask=feed_dict['valid_material'],
+                    #     missing_score = None)
+                    correct, valid = self.get_correct_and_valid_pixels(
+                        pred['material'], feed_dict['seg_material'], ignore_index=0,
+                        samples_valid_mask=feed_dict['valid_material']
+                    )
+                    metric_dict['material'] = {'correct': correct, 'valid': valid}
+                if pred['part'] is not None:
+                    acc_sum, pixel_sum = 0, 0
+                    for idx_part, object_label in enumerate(broden_dataset.object_with_part):
+                        acc, pixel = self.part_pixel_acc(
+                            pred['part'][idx_part], feed_dict['seg_part'], feed_dict['seg_object'],
+                            object_label, feed_dict['valid_part'][:, idx_part])
+                        acc_sum += acc
+                        pixel_sum += pixel
+                    # if pixel_sum > 0:
+                    #     part_acc = acc_sum.float() / pixel_sum.float()
+                    # else:
+                    #     part_acc = None
+                    #metric_dict['part'] = acc_sum.float() / (pixel_sum.float() + 1e-10)
+                    # metric_dict['part'] = part_acc
+                    metric_dict['part'] = {'correct': acc_sum.long(),
+                                            'valid': pixel_sum.long()}  # Should we account for background when calculaing valid pixels 
+                if pred['scene'] is not None:
+                    metric_dict['scene'] = self.pixel_acc(
+                        pred['scene'], feed_dict['scene_label'], ignore_index=-1,
+                        missing_score = None)
+                    correct, valid = self.get_correct_and_valid_pixels(
+                        pred['scene'], feed_dict['scene_label'], ignore_index=-1
+                    )
+                    metric_dict['scene'] = {'correct': correct, 'valid': valid}
+
+                output_dict['metric'] = metric_dict
+
+            return output_dict
         else: # inference
             # output_switch = {"object": True, "part": True, "scene": True, "material": True}
             pred = self.decoder(self.encoder(feed_dict['img'], return_feature_maps=True),
