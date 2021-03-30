@@ -124,6 +124,11 @@ class BrodenDataset:
 
             # part
             seg_part = full_seg["part"]
+            if record['dataset'] == 'ade20k':
+                img_file_path = md['filename']
+            else:
+                # Pascal img file name
+                img_file_path = md[-1]
             if len(seg_part) == 0:
 
                 data = {
@@ -135,7 +140,7 @@ class BrodenDataset:
                     "scene_label": scene_label,
                     "seg_material": seg_material,
                     "valid_mat": valid_mat,
-                    "img_file_path": md['filename'],
+                    "img_file_path": img_file_path,
                 }
 
                 return data
@@ -173,7 +178,7 @@ class BrodenDataset:
                 "scene_label": scene_label,
                 "seg_material": seg_material,
                 "valid_mat": valid_mat,
-                "img_file_path": md['filename'],
+                "img_file_path": img_file_path,
             }
 
             return data
